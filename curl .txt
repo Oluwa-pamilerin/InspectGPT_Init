@@ -1,0 +1,8 @@
+curl \
+-H 'Content-Type: application/json' \
+-d '{ "prompt": { "text": "Write a story about a magic backpack"} }' \
+"https://generativelanguage.googleapis.com/v1beta3/models/text-bison-001:generateText?key=AIzaSyA6ha0llTEQvmz8iSkIlubJZ1fhSZU2X9g"
+
+
+
+AIzaSyBt-xl-GgY_uM2_iOpyJ1LWx93bqSLqLGY
