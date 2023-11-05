@@ -1,3 +1,3 @@
 InspectGPT
 
-Vs-Code AI INspector and Assistant
+Vs-Code AI Inspector and Assistant
