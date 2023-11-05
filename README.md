@@ -1,3 +1,3 @@
-# inspectgpt README
+InspectGPT
 
-Test ReadMe
+Vs-Code AI INspector and Assistant
