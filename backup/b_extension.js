@@ -6,7 +6,7 @@ const dotenv = require('dotenv');
 const envFilePath = path.join(__dirname, '.env');
 const result = dotenv.config({ path: envFilePath });
 let apiKey;
-
+apiKey = process.env.API_KEY;
 if (result.error) {
     console.error(`Error loading .env file: ${result.error.message}`);
 } else { 
@@ -15,7 +15,6 @@ if (result.error) {
         console.error("API_KEY is not found in the .env file. Please check your configuration.");
     }
 }
-apiKey = process.env.API_KEY;
 
 // List of file names to omit
 const omittedFiles = ['.env', 'secrets.txt', 'private.key']; // Add sensitive file names here
