@@ -5,11 +5,11 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const envFilePath = path.join(__dirname, '.env');
 const result = dotenv.config({ path: envFilePath });
-let apiKey;
-apiKey = process.env.API_KEY;
+const limit = 10000; // Set your payload size limit here
+const apiKey = process.env.API_KEY;
 if (result.error) {
     console.error(`Error loading .env file: ${result.error.message}`);
-} else { 
+} else {
     // Check if the API_KEY is available
     if (!apiKey) {
         console.error("API_KEY is not found in the .env file. Please check your configuration.");
@@ -17,23 +17,14 @@ if (result.error) {
 }
 
 // List of file names to omit
-const omittedFiles = ['.env', 'secrets.txt', 'private.key']; // Add sensitive file names here
-let fileContents = [];
-
-function dislayfileContentText(fileContents) {
-    fileContents.forEach(fileContent => {
-        return fileContent
-    });
-}
-
 function activate(context) {
     // Register an event listener to log folder contents when a workspace folder is ready
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
-        logAllFolderContents();
     });
 
     // Extension Activation
     console.log('Congratulations, your extension "inspectgpt" is now active!');
+    vscode.window.showInformationMessage('InspectGPT is all set! Happy Coding 👨‍💻');
 
     let currentSelection = null;
     let selectionTimeout = null;
@@ -78,52 +69,20 @@ function activate(context) {
         if (editor) {
             const selection = editor.selection;
             if (!selection.isEmpty) {
-                const selectedText = editor.document.getText(selection);
+                if (editor.document.getText(selection).length <= limit) {
+                    const selectedText = editor.document.getText(selection);
+                    // If the content is within the limit, return it as is
+                } else {
+                    // If content exceeds the limit, return the content until the limit with "..."
+                    const selectedText = editor.document.getText(selection).slice(0, limit) + '... "\n The code continues..."';
+                }
                 panel = sendHighlightedTextToBard(selectedText, panel); // Pass the panel variable
             }
         }
     }));
 
     // Run extension one at the beginning
-    logAllFolderContents();
 }
-function logAllFolderContents() {
-    const { workspace } = vscode;
-    if (!workspace.workspaceFolders || workspace.workspaceFolders.length === 0) {
-        vscode.window.showInformationMessage('No workspace folders are opened.');
-        return;
-    }
-
-    // Loop through the opened workspace folders
-    workspace.workspaceFolders.forEach((folder) => {
-        const folderPath = folder.uri.fsPath;
-        const folderName = path.basename(folderPath);
-
-        // Read the files in the folder
-        try {
-            const files = fs.readdirSync(folderPath);
-
-            // Loop through the files in the folder
-            files.forEach((file) => {
-                // Check if the file should be omitted
-                if (!omittedFiles.includes(file)) {
-                    const filePath = path.join(folderPath, file);
-                    const fileContent = fs.readFileSync(filePath, 'utf-8');
-                    // console.log(`Folder: ${folderName}, File: ${filePath}`);
-                    // console.log(fileContent);
-
-                    // Add the file content to the array
-                    fileContents.push({ folderName, filePath, fileContent });
-                }
-            });
-        } catch (error) {
-            console.error('Error reading the directory:', error.message);
-        }
-    });
-
-    vscode.window.showInformationMessage('InspectGPT is all set! Happy Coding 👨‍💻');
-}
-
 // Now you can access the file contents from outside the function using the 'fileContents' array.
 
 
@@ -131,7 +90,39 @@ function logAllFolderContents() {
 
 // Function to send highlighted text to Bard and handle the response.
 
+function getActiveFileLanguage() {
+    const editor = vscode.window.activeTextEditor;
 
+    if (editor) {
+        const document = editor.document;
+        const languageId = document.languageId;
+        return languageId;
+    } else {
+        vscode.window.showInformationMessage('No active text editor found.');
+        return null; // Return null or an appropriate value if there's no active text editor.
+    }
+}
+
+function getActiveFileContent() {
+    const editor = vscode.window.activeTextEditor;
+
+    if (editor) {
+        const document = editor.document;
+        const text = document.getText();
+        const limit = 10000; // Set your payload size limit here
+
+        if (text.length <= limit) {
+            return text; // If the content is within the limit, return it as is
+        } else {
+            // If content exceeds the limit, return the content until the limit with "..."
+            const truncatedContent = text.slice(0, limit) + '... "The code continues..."';
+            return truncatedContent;
+        }
+    } else {
+        vscode.window.showInformationMessage('No active text editor found.');
+        return null; // Return null or an appropriate value if there's no active text editor.
+    }
+}
 
 
 function sendHighlightedTextToBard(highlightedText, existingPanel) {
@@ -139,18 +130,9 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
         console.error("API_KEY is not available. Cannot make the request.");
         return existingPanel;
     }
-    const apiUrl = "https://generativelanguage.googleapis.com/v1beta3/models/text-bison-001:generateText?key=" + apiKey;
-    const requestData = {
-        prompt: {
-            text: "Below are the content of the coding project I am currently working on using Vscode editor." + "\n" +
-                dislayfileContentText(fileContents) + "\n" +
-                "I want you to go through the codes. Digest it and understand it well.  Then, deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If neccesary, send the corrected version of the code. If your response include a code. Enclose it in a '<pre>' tag ",
-        }
-    };
 
-    const headers = {
-        'Content-Type': 'application/json',
-    };
+    const { DiscussServiceClient } = require("@google-ai/generativelanguage");
+    const { GoogleAuth } = require("google-auth-library");
 
     if (existingPanel) {
         existingPanel.dispose(); // Dispose the existing panel
@@ -159,7 +141,10 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     // Create a new panel
     const panel = vscode.window.createWebviewPanel(
         'highlightedTextPanel',
-        'Highlighted Text and Bard Response',
+        highlightedText
+            .replace(/[^\w\s]/g, '') // Remove special characters
+            .replace(/\s+/g, ' ')    // Remove extra spaces
+            .slice(0, 50),          // Truncate to 50 characters,
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
@@ -170,37 +155,75 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     panel.webview.html = getWebviewContent(highlightedText, 'Waiting for Bard...');
 
     // Handle messages from the webview
-    panel.webview.onDidReceiveMessage(message => {
-        console.log(message.text);
-        // vscode.window.showInformationMessage(`Received: ${message.text}`);
-    });
+    // panel.webview.onDidReceiveMessage(message => {
+    //     console.log(message.text);
+    //     // vscode.window.showInformationMessage(`Received: ${message.text}`);
+    // });
 
     // Send the highlighted text to Bard via an HTTP request
-    axios.post(apiUrl, requestData, { headers })
-        .then(response => {
-            if (response.data && response.data.candidates && response.data.candidates.length > 0) {
-                console.log('Response Data:', response.data.candidates[0].output.toString());
-                // Update the webview with Bard's response
-                panel.webview.html = getWebviewContent(highlightedText, response.data.candidates[0].output);
+    const language = getActiveFileLanguage();
+    const fileContent = getActiveFileContent();
+    const MODEL_NAME = "models/chat-bison-001";
+    const API_KEY = apiKey;
+    const messages = [];
 
-            } else {
-                console.error('No valid response data from Bard');
-                console.log(response.data);
-                panel.webview.html = getWebviewContent(highlightedText, "Opps An Error Occured! Please Retry");
+    messages.push({
+        "content": "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
+    });
+    const content = "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
+    console.log("Content: " + content);
+    const client = new DiscussServiceClient({
+        authClient: new GoogleAuth().fromAPIKey(API_KEY),
+    });
+
+    const context = "Reply like a seasoned senior developer and code coach giving detailed explanation to the extracted code line. The file currently being worked on is written in \n '" + language + "' programming language. This is the content of the file: \n '" + fileContent + "' \n";
+    const examples = [
+        {
+            "input":{
+              "content":  "Simply Check this text and say something:axios.post(apiUrl, requestData, { headers }).then(response => {// console.log('Response Status Code:', response.status);console.log('Response Data:', response.data.candidates[0].output.toString());}).catch(error => { console.error('Error:', error);});If it is meaningless, let me know"
+            },
+            "output":{
+              "content":"The provided text appears to be JavaScript code snippet that utilizes the Axios library to perform an HTTP POST request. It sends the request to an API endpoint specified by apiUrl with the request data stored in requestData and custom headers defined in the headers object.Upon successful completion of the request, the then() block is executed, which logs the response status code and the first candidate's output string to the console. If an error occurs during the request, the catch() block is triggered, logging the error details to the console.The code snippet seems meaningful in the context of making HTTP POST requests and handling responses using the Axios library. It demonstrates the basic structure of sending data to an API endpoint and processing the received response"
             }
-
-        })
-        .catch(error => {
-            if (error.code === 'ECONNABORTED') {
-                // Network timeout error, indicate no internet connection
-                panel.webview.html = getWebviewContent(highlightedText, 'No Internet Connection');
-            } else {
-                console.error('Error sending text to Bard:', error);
-
-                // Handle other errors in the webview
-                panel.webview.html = getWebviewContent(highlightedText, 'Error sending text to Bard');
+        },{
+            "input": {
+                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag.",
+            },
+            "output": {
+                "content": "Your response here...",
             }
-        });
+        }
+    ];
+
+    client.generateMessage({
+        model: MODEL_NAME,
+        temperature: 0.25,
+        candidateCount: 8,
+        top_k: 40,
+        top_p: 0.95,
+        prompt: {
+            context: context,
+            examples: examples,
+            messages: messages,
+        },
+    }).then(result => {
+        if (result && result[0] && result[0].candidates && result[0].candidates.length > 0) {
+            result[0].candidates.forEach(obj => {
+                panel.webview.html = getWebviewContent(highlightedText, obj.content);
+                messages.push({ "content": obj.content });
+            });
+        } else {
+            console.log("Oops, please provide some more info");
+            panel.webview.html = getWebviewContent(highlightedText, "Oops, please provide some more info");
+        }
+    }).catch(error => {
+        if (error.code === 'ECONNABORTED') {
+            panel.webview.html = getWebviewContent(highlightedText, 'No Internet Connection');
+        } else {
+            console.error('Error sending text to Bard:', error);
+            panel.webview.html = getWebviewContent(highlightedText, 'Error sending text to Bard');
+        }
+    });
 
     return panel; // Return the new panel
 }
@@ -297,40 +320,113 @@ function getWebviewContent(selectedText, bardResponse) {
             border-radius: 5px;
             background-color: #444654;
         }
+        .chat-container {
+            width: 100%;
+            margin: 20px auto;
+            border-radius: 5px;
+            height: 100%;
+            padding-bottom: 100px;
+        }
+        
+        .chat {
+            padding: 20px;
+        }
+        
+        .message-input {
+            width: 80%;
+            padding: 10px;
+            border: none;
+            border-top: 1px solid #0078D4;
+            margin: 10px 10px;
+            border-radius: 5px;
+            max-height: 50px;
+            resize: none;
+            overflow: hidden;
+        }
+        
+        .send-button {
+            background-color: #6B6C7B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
     <header>
         <h1>InspectGPT</h1>
     </header>
-
     <div class="chat-container">
-        <div class="chat">
+    <div class="chat">
             <div class="bot-message">
                 ${searchedResponse}
             </div>
             <!-- Add more messages as needed -->
         </div>
-        <div class="input">
-            <textarea id="textInput" class="message-input" type="text"  placeholder="Ask Followup Questions"></textarea>
-            <br>
-            <button id="logButton" class="send-button">Send</button>
-        </div>
+    <div class="chat">
+        <!-- Chat messages will go here -->
+    </div>
+    <div class="input">
+        <textarea id="textInput" class="message-input" type="text"  placeholder="Ask Followup Questions"></textarea>
+        <br>
+        <button id="sendButton" class="send-button">Send</button>
+    </div>
     </div>
 
     <script>
-    const vscode = acquireVsCodeApi();
+    function appendMessage(sender, message) {
+        const chat = document.querySelector(".chat");
+        const messageElement = document.createElement("div");
+        messageElement.className = sender === "user" ? "user-message" : "bot-message";
+        const icon = document.createElement("span");
+        icon.className = sender === "user" ? "user-icon" : "bot-icon";
+        icon.innerHTML = sender === "user" ? "👤  " : "🤖  "; // Add icons for the user and bot
+        messageElement.appendChild(icon);
+        messageElement.innerHTML += message;
+        chat.appendChild(messageElement);
+    }
 
-    document.getElementById("logButton").addEventListener("click", () => {
+    document.getElementById("sendButton").addEventListener("click", () => {
+        sendMessage();
+    });
+
+    document.getElementById("textInput").addEventListener("keyup", (event) => {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
+
+    function sendMessage() {
         const textInput = document.getElementById("textInput");
         const text = textInput.value;
-        vscode.postMessage({ text });
-    });
-</script>
+        if (text) {
+            // Display the user's message in the chat
+            appendMessage("user", text);
 
-</body>
-</html>
-`
+            // Send the user's message to Bard API (you'll need to integrate this)
+            // Replace the following line with your Bard API call
+            sendToBard(text);
+
+            // Clear the input field
+            textInput.value = "";
+        }
+    }
+
+    // Example function for sending a message to Bard
+    function sendToBard(text) {
+        // Your Bard API integration code here
+        // Replace this with your actual API call
+
+        // For this example, we'll simply respond with "seen"
+        appendMessage("bot", "Seen: " + text );
+    }
+ </script>
+        </body>
+        </html>
+        `;
 }
 
 
@@ -342,3 +438,4 @@ module.exports = {
     activate,
     deactivate,
 };
+

@@ -26,7 +26,6 @@ function activate(context) {
     console.log('Congratulations, your extension "inspectgpt" is now active!');
     vscode.window.showInformationMessage('InspectGPT is all set! Happy Coding 👨‍💻');
 
-
     let currentSelection = null;
     let selectionTimeout = null;
     let panel = null; // Declare the panel variable
@@ -135,7 +134,6 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const { DiscussServiceClient } = require("@google-ai/generativelanguage");
     const { GoogleAuth } = require("google-auth-library");
 
-
     if (existingPanel) {
         existingPanel.dispose(); // Dispose the existing panel
     }
@@ -143,117 +141,88 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     // Create a new panel
     const panel = vscode.window.createWebviewPanel(
         'highlightedTextPanel',
-        'Highlighted Text and Bard Response',
+        highlightedText
+            .replace(/[^\w\s]/g, '') // Remove special characters
+            .replace(/\s+/g, ' ')    // Remove extra spaces
+            .slice(0, 50),          // Truncate to 50 characters,
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
         }
     );
 
-
-
     // Show "Waiting for Bard" while waiting for the response
     panel.webview.html = getWebviewContent(highlightedText, 'Waiting for Bard...');
 
     // Handle messages from the webview
-    panel.webview.onDidReceiveMessage(message => {
-        console.log(message.text);
-        // vscode.window.showInformationMessage(`Received: ${message.text}`);
-    });
+    // panel.webview.onDidReceiveMessage(message => {
+    //     console.log(message.text);
+    //     // vscode.window.showInformationMessage(`Received: ${message.text}`);
+    // });
 
     // Send the highlighted text to Bard via an HTTP request
-
-
-    const language = getActiveFileLanguage()
+    const language = getActiveFileLanguage();
     const fileContent = getActiveFileContent();
-
     const MODEL_NAME = "models/chat-bison-001";
-    const API_KEY = "AIzaSyBZxz1NG1QpRtLRKq1wC_wJSYz7lZYPl5k";
+    const API_KEY = apiKey;
     const messages = [];
 
-
+    messages.push({
+        "content": "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
+    });
+    const content = "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
     const client = new DiscussServiceClient({
         authClient: new GoogleAuth().fromAPIKey(API_KEY),
     });
 
-    const context = "Reply like a seasoned senior developer and code coach giving detailed explanation to the extracted code line. The file currently being worked on is written in \n '" + language+ "' programming language. This is the content of the file: \n '" + fileContent+ "' \n" ;
+    const context = "Reply like a seasoned senior developer and code coach giving detailed explanation to the extracted code line. The file currently being worked on is written in \n '" + language + "' programming language. This is the content of the file: \n '" + fileContent + "' \n";
     const examples = [
         {
-            "input": {
-                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + "from dotenv import load_dotenv" + "\n" + "If neccesary, send the corrected version of the code. If your response include a code, Enclose it in a '<pre>' tag. \n Meanwhile, if you do not undestand anything about the extracted code, simply make a comment about the extracted code on how it can be made more meaningful.",
-
+            "input":{
+              "content":  "Simply Check this text and say something:axios.post(apiUrl, requestData, { headers }).then(response => {// console.log('Response Status Code:', response.status);console.log('Response Data:', response.data.candidates[0].output.toString());}).catch(error => { console.error('Error:', error);});If it is meaningless, let me know"
             },
-            "output": {
-                "content": "I see that you've provided a code extract and requested an explanation of what this code is all about in the specific context of the other codes in the project. Let's examine the code:```from dotenv import load_dotenv```This line of code is importing the load_dotenv function from the dotenv module. It's a common practice in Python to use the import statement to bring in external functions or classes from libraries to use them in your code.The purpose of this line of code is to import the load_dotenv function. load_dotenv is typically used for loading environment variables from a .env file into the application's environment. This is a common technique for managing sensitive information like API keys and database credentials without hardcoding them in your code.Regarding its context within the project, it's important to know that this line is just one part of the code, and its specific role depends on how and where it's used within the project. Without access to the entire codebase, it's challenging to provide a detailed context. If you can share more code or describe where and how this code is used, I can provide a more specific explanation.As for the code itself, there doesn't appear to be any errors in this line. It's a straightforward import statement.If you have more code or specific questions about how this code is used in your project, please feel free to share that, and I'll be happy to provide further assistance."
+            "output":{
+              "content":"The provided text appears to be JavaScript code snippet that utilizes the Axios library to perform an HTTP POST request. It sends the request to an API endpoint specified by apiUrl with the request data stored in requestData and custom headers defined in the headers object.Upon successful completion of the request, the then() block is executed, which logs the response status code and the first candidate's output string to the console. If an error occurs during the request, the catch() block is triggered, logging the error details to the console.The code snippet seems meaningful in the context of making HTTP POST requests and handling responses using the Axios library. It demonstrates the basic structure of sending data to an API endpoint and processing the received response"
             }
-        }, {
+        },{
             "input": {
-                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + "from bardapi import Bard" + "\n" + "If neccesary, send the corrected version of the code. If your response include a code, Enclose it in a '<pre>' tag. \n Meanwhile, if you do not undestand anything about the extracted code, simply make a comment about the extracted code on how it can be made more meaningful."
+                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag.",
             },
             "output": {
-                "content": "I see that you've provided a code extract that seems to import something from the bardapi module. However, I can't provide a complete understanding of the code without the full context of the project and other related codes. To understand the code in its specific context, I would need to see the entire project or at least more of the surrounding code. Without the complete codebase, I can't identify specific errors or provide a comprehensive explanation. If you have any specific questions or concerns about this code or if you can provide more details about the project, please feel free to share them, and I'll do my best to assist you."
-            }
-        },
-        {
-            "input": {
-                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + "load_dotenv()" + "\n" + "If neccesary, send the corrected version of the code. If your response include a code, Enclose it in a '<pre>' tag. \n Meanwhile, if you do not undestand anything about the extracted code, simply make a comment about the extracted code on how it can be made more meaningful."
-            },
-            "output": {
-                "content": "The code extract you provided, 'load_dotenv()', appears to be a Python function call. In the context of a Python project, this function is typically used to load environment variables from a file called '.env' into the project's environment. These environment variables are often used to store configuration settings or sensitive information such as API keys.The line 'load_dotenv()' is a common way to initiate the process of loading these environment variables from the .env file into the application. It's usually placed at the beginning of a Python script or application to ensure that the environment variables are available for the rest of the code.As for pointing out any errors, there is no error in the code extract 'load_dotenv().' It's a valid function call in Python, and its correctness depends on whether the 'python-dotenv' library is correctly installed and whether the '.env' file exists in the project directory.Since there are no errors in the provided code extract, there's no need to send a corrected version. If you have any specific questions or need further assistance related to this code or any other part of your project, please feel free to ask."
+                "content": "Your response here...",
             }
         }
     ];
 
- messages.push({
-        "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n '" + highlightedText + "' \n" + "If neccesary, send the corrected version of the code. If your response include a code. Enclose it in a '<pre>' tag ",
-    // "content": "Simply Check this text and make a comment about it \n '" + highlightedText + "' \n"
-    });
-
     client.generateMessage({
-        // required, which model to use to generate the result
         model: MODEL_NAME,
-        // optional, 0.0 always uses the highest-probability result
         temperature: 0.25,
-        // optional, how many candidate results to generate
         candidateCount: 8,
-        // optional, number of most probable tokens to consider for generation
         top_k: 40,
-        // optional, for nucleus sampling decoding strategy
         top_p: 0.95,
         prompt: {
-            // optional, sent on every request and prioritized over history
             context: context,
-            // optional, examples to further finetune responses
             examples: examples,
-            // required, alternating prompt/response messages
             messages: messages,
         },
     }).then(result => {
-        // console.log(JSON.stringify(result, null, 2));
         if (result && result[0] && result[0].candidates && result[0].candidates.length > 0) {
             result[0].candidates.forEach(obj => {
                 panel.webview.html = getWebviewContent(highlightedText, obj.content);
-                messages.push({ "content": obj.content })
-                console.log(obj.content);
+                messages.push({ "content": obj.content });
             });
         } else {
-            console.log("Opps, please provide some more info");
-            console.log(result);
-            panel.webview.html = getWebviewContent(highlightedText, "Opps, please provide some more info");
+            console.log("Oops, please provide some more info");
+            panel.webview.html = getWebviewContent(highlightedText, "Oops, please provide some more info");
         }
-    })
-        .catch(error => {
-            if (error.code === 'ECONNABORTED') {
-                // Network timeout error, indicate no internet connection
-                panel.webview.html = getWebviewContent(highlightedText, 'No Internet Connection');
-            } else {
-                console.error('Error sending text to Bard:', error);
-
-                // Handle other errors in the webview
-                panel.webview.html = getWebviewContent(highlightedText, 'Error sending text to Bard');
-            }
-        });
-
+    }).catch(error => {
+        if (error.code === 'ECONNABORTED') {
+            panel.webview.html = getWebviewContent(highlightedText, 'No Internet Connection');
+        } else {
+            console.error('Error sending text to Bard:', error);
+            panel.webview.html = getWebviewContent(highlightedText, 'Error sending text to Bard');
+        }
+    });
 
     return panel; // Return the new panel
 }
@@ -262,129 +231,194 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
 
 
 function getWebviewContent(selectedText, bardResponse) {
+    // No changes needed in this part
     const formattedResponse = bardResponse
         .split('\n')
         .filter(line => line.trim() !== '')
         .map(paragraph => `<p>${paragraph}</p>`)
-        .join('')
-        .toString()
+        .join('');
 
     const codeRegex = /```([\s\S]*?)```/g;
     const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: pre-wrap;">$1</pre>');
 
-
     return `<!DOCTYPE html>
-    <!DOCTYPE html>
     <html>
     <head>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #343541;
-            margin: 0;
-            padding: 0;
-        }
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #343541;
+        margin: 0;
+        padding: 0;
+    }
 
-        header {
-            background-color: #444654;
-            color: white;
-            text-align: center;
-            padding: 10px;
-        }
+    header {
+        background-color: #444654;
+        color: white;
+        text-align: center;
+        padding: 10px;
+    }
 
-        .chat-container {
-            width:100%;
-            margin: 20px auto;
-            border-radius: 5px;
-            height: 100%;
-            padding-bottom: 100px
-        }
+    .chat-container {
+        width:100%;
+        margin: 20px auto;
+        border-radius: 5px;
+        height: 100%;
+        padding-bottom: 100px
+    }
 
-        .chat {
-            padding: 20px;
-        }
+    .chat {
+        padding: 20px;
+    }
 
-        .user-message, .bot-message {
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 5px;
-        }
+    .user-message, .bot-message {
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+    }
 
-        .user-message {
-            background-color: #343541;
-        }
+    .user-message {
+        background-color: #343541;
+    }
 
-        .bot-message {
-            color: white;
-            margin-bottom: 70px;
-        }
+    .bot-message {
+        color: white;
+        margin-bottom: 70px;
+    }
 
-        .message-input {
-            width: 80%;
-            padding: 10px;
-            border: none;
-            border-top: 1px solid #0078D4;
-            margin: 10px 10px;
-            border-radius: 5px;
-            max-height: 50px;
-            resize: none;
-            overflow: hidden;
-        }
+    .message-input {
+        width: 80%;
+        padding: 10px;
+        border: none;
+        border-top: 1px solid #0078D4;
+        margin: 10px 10px;
+        border-radius: 5px;
+        max-height: 50px;
+        resize: none;
+        overflow: hidden;
+    }
 
-        .send-button {
-            background-color: #6B6C7B;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
+    .send-button {
+        background-color: #6B6C7B;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
 
-        .input {
-            text-align: center;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #444654;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>InspectGPT</h1>
-    </header>
+    .input {
+        text-align: center;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #444654;
+    }
+    .chat-container {
+        width: 100%;
+        margin: 20px auto;
+        border-radius: 5px;
+        height: 100%;
+        padding-bottom: 100px;
+    }
+    
+    .chat {
+        padding: 20px;
+    }
+    
+    .message-input {
+        width: 80%;
+        padding: 10px;
+        border: none;
+        border-top: 1px solid #0078D4;
+        margin: 10px 10px;
+        border-radius: 5px;
+        max-height: 50px;
+        resize: none;
+        overflow: hidden;
+    }
+    
+    .send-button {
+        background-color: #6B6C7B;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
 
-    <div class="chat-container">
-        <div class="chat">
-            <div class="bot-message">
-                ${searchedResponse}
+</style>
+    </head>
+    <body>
+        <header>
+            <h1>InspectGPT</h1>
+        </header>
+        <div class="chat-container">
+            <div class="chat">
+                <div class="bot-message">
+                    ${searchedResponse}
+                </div>
+                <div id="selectedText">
+                    ${selectedText}
+                </div>
             </div>
-            <!-- Add more messages as needed -->
+            <div class="chat">
+                <!-- Chat messages will go here -->
+            </div>
+            <div class="input">
+                <textarea id="textInput" class="message-input" type="text"  placeholder="Ask Followup Questions"></textarea>
+                <br>
+                <button id="sendButton" class="send-button">Send</button>
+            </div>
         </div>
-        <div class="input">
-            <textarea id="textInput" class="message-input" type="text"  placeholder="Ask Followup Questions"></textarea>
-            <br>
-            <button id="logButton" class="send-button">Send</button>
-        </div>
-    </div>
 
-    <script>
-    const vscode = acquireVsCodeApi();
+        <script>
+            function appendMessage(sender, message) {
+                const chat = document.querySelector(".chat");
+                const messageElement = document.createElement("div");
+                messageElement.className = sender === "user" ? "user-message" : "bot-message";
+                const icon = document.createElement("span");
+                icon.className = sender === "user" ? "user-icon" : "bot-icon";
+                icon.innerHTML = sender === "user" ? "👤  " : "🤖  ";
+                messageElement.appendChild(icon);
+                messageElement.innerHTML += message;
+                chat.appendChild(messageElement);
+            }
 
-    document.getElementById("logButton").addEventListener("click", () => {
-        const textInput = document.getElementById("textInput");
-        const text = textInput.value;
-        vscode.postMessage({ text });
-    });
-</script>
+            document.getElementById("sendButton").addEventListener("click", () => {
+                sendMessage();
+            });
 
-</body>
-</html>
-`
+            document.getElementById("textInput").addEventListener("keyup", (event) => {
+                if (event.key === "Enter") {
+                    sendMessage();
+                }
+            });
+
+            function sendMessage() {
+                const textInput = document.getElementById("textInput");
+                const text = textInput.value;
+                const selectedText = document.getElementById("selectedText").textContent; // Get the text content
+                if (text) {
+                    appendMessage("user", text);
+                    sendToBard(text, selectedText); // Pass selectedText as a parameter
+                    textInput.value = "";
+                }
+            }
+
+            function sendToBard(text, selectedText) {
+                console.log("selectedText: " + selectedText);
+                // Your Bard API integration code here
+                appendMessage("bot", "Seen: " + text + " SelectedText: " + selectedText);
+            }
+        </script>
+    </body>
+    </html>`;
 }
+
 
 
 function deactivate() {
