@@ -167,10 +167,12 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const API_KEY = apiKey;
     const messages = [];
 
+    // const content = "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag."
+    const content = "Rewrite the corrected version of this code: " + "\n" + highlightedText + "\n";
+
     messages.push({
-        "content": "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
+        "content": content
     });
-    const content = "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
     const client = new DiscussServiceClient({
         authClient: new GoogleAuth().fromAPIKey(API_KEY),
     });
@@ -178,18 +180,11 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const context = "Reply like a seasoned senior developer and code coach giving detailed explanation to the extracted code line. The file currently being worked on is written in \n '" + language + "' programming language. This is the content of the file: \n '" + fileContent + "' \n";
     const examples = [
         {
-            "input":{
-              "content":  "Simply Check this text and say something:axios.post(apiUrl, requestData, { headers }).then(response => {// console.log('Response Status Code:', response.status);console.log('Response Data:', response.data.candidates[0].output.toString());}).catch(error => { console.error('Error:', error);});If it is meaningless, let me know"
-            },
-            "output":{
-              "content":"The provided text appears to be JavaScript code snippet that utilizes the Axios library to perform an HTTP POST request. It sends the request to an API endpoint specified by apiUrl with the request data stored in requestData and custom headers defined in the headers object.Upon successful completion of the request, the then() block is executed, which logs the response status code and the first candidate's output string to the console. If an error occurs during the request, the catch() block is triggered, logging the error details to the console.The code snippet seems meaningful in the context of making HTTP POST requests and handling responses using the Axios library. It demonstrates the basic structure of sending data to an API endpoint and processing the received response"
-            }
-        },{
             "input": {
-                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag.",
+                "content": "Simply Check this text and say something:axios.post(apiUrl, requestData, { headers }).then(response => {// console.log('Response Status Code:', response.status);console.log('Response Data:', response.data.candidates[0].output.toString());}).catch(error => { console.error('Error:', error);});If it is meaningless, let me know"
             },
             "output": {
-                "content": "Your response here...",
+                "content": "The provided text appears to be JavaScript code snippet that utilizes the Axios library to perform an HTTP POST request. It sends the request to an API endpoint specified by apiUrl with the request data stored in requestData and custom headers defined in the headers object.Upon successful completion of the request, the then() block is executed, which logs the response status code and the first candidate's output string to the console. If an error occurs during the request, the catch() block is triggered, logging the error details to the console.The code snippet seems meaningful in the context of making HTTP POST requests and handling responses using the Axios library. It demonstrates the basic structure of sending data to an API endpoint and processing the received response"
             }
         }
     ];
@@ -231,194 +226,209 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
 
 
 function getWebviewContent(selectedText, bardResponse) {
-    // No changes needed in this part
     const formattedResponse = bardResponse
         .split('\n')
         .filter(line => line.trim() !== '')
         .map(paragraph => `<p>${paragraph}</p>`)
-        .join('');
+        .join('')
+        .toString()
+        .replace(/<\/p><p>/g, '\n')
 
     const codeRegex = /```([\s\S]*?)```/g;
-    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: pre-wrap;">$1</pre>');
+    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: no-wrap; overflow-x: auto;"><pre><code><xmp>$1</xmp></code></pre></pre>');
+
+    selectedText = "<pre><code><xmp>${selectedText}</xmp></code></pre>"
 
     return `<!DOCTYPE html>
+    <!DOCTYPE html>
     <html>
     <head>
     <style>
-    body {
-        font-family: Arial, sans-serif;
-        background-color: #343541;
-        margin: 0;
-        padding: 0;
-    }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #343541;
+            margin: 0;
+            padding: 0;
+        }
 
-    header {
-        background-color: #444654;
-        color: white;
-        text-align: center;
-        padding: 10px;
-    }
+        header {
+            background-color: #444654;
+            color: white;
+            text-align: center;
+            padding: 10px;
+        }
 
-    .chat-container {
-        width:100%;
-        margin: 20px auto;
-        border-radius: 5px;
-        height: 100%;
-        padding-bottom: 100px
-    }
+        .chat-container {
+            width:100%;
+            margin: 20px auto;
+            border-radius: 5px;
+            height: 100%;
+            padding-bottom: 100px
+        }
 
-    .chat {
-        padding: 20px;
-    }
+        .chat {
+            padding: 20px;
+        }
 
-    .user-message, .bot-message {
-        padding: 10px;
-        margin: 5px 0;
-        border-radius: 5px;
-    }
+        .user-message, .bot-message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
 
-    .user-message {
-        background-color: #343541;
-    }
+        .user-message {
+            background-color: #343541;
+        }
 
-    .bot-message {
-        color: white;
-        margin-bottom: 70px;
-    }
+        .bot-message {
+            color: white;
+            margin-bottom: 70px;
+        }
 
-    .message-input {
-        width: 80%;
-        padding: 10px;
-        border: none;
-        border-top: 1px solid #0078D4;
-        margin: 10px 10px;
-        border-radius: 5px;
-        max-height: 50px;
-        resize: none;
-        overflow: hidden;
-    }
+        .message-input {
+            width: 80%;
+            padding: 10px;
+            border: none;
+            border-top: 1px solid #0078D4;
+            margin: 10px 10px;
+            border-radius: 5px;
+            max-height: 50px;
+            resize: none;
+            overflow: hidden;
+        }
 
-    .send-button {
-        background-color: #6B6C7B;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-    }
+        .send-button {
+            background-color: #6B6C7B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
 
-    .input {
-        text-align: center;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        padding: 10px;
-        border-radius: 5px;
-        background-color: #444654;
-    }
-    .chat-container {
-        width: 100%;
-        margin: 20px auto;
-        border-radius: 5px;
-        height: 100%;
-        padding-bottom: 100px;
-    }
-    
-    .chat {
-        padding: 20px;
-    }
-    
-    .message-input {
-        width: 80%;
-        padding: 10px;
-        border: none;
-        border-top: 1px solid #0078D4;
-        margin: 10px 10px;
-        border-radius: 5px;
-        max-height: 50px;
-        resize: none;
-        overflow: hidden;
-    }
-    
-    .send-button {
-        background-color: #6B6C7B;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        cursor: pointer;
-    }
+        .input {
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #444654;
+        }
+        .chat-container {
+            width: 100%;
+            margin: 20px auto;
+            border-radius: 5px;
+            height: 100%;
+            padding-bottom: 100px;
+        }
+        
+        .chat {
+            padding: 20px;
+        }
+        
+        .message-input {
+            width: 80%;
+            padding: 10px;
+            border: none;
+            border-top: 1px solid #0078D4;
+            margin: 10px 10px;
+            border-radius: 5px;
+            max-height: 50px;
+            resize: none;
+            overflow: hidden;
+        }
+        
+        .send-button {
+            background-color: #6B6C7B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
 
-</style>
-    </head>
-    <body>
-        <header>
-            <h1>InspectGPT</h1>
-        </header>
-        <div class="chat-container">
-            <div class="chat">
-                <div class="bot-message">
-                    ${searchedResponse}
-                </div>
-                <div id="selectedText">
-                    ${selectedText}
-                </div>
+    </style>
+</head>
+<body>
+    <header>
+        <h1>InspectGPT</h1>
+    </header>
+    <div class="chat-container">
+    <div class="chat">
+            <div class="bot-message">
+                ${searchedResponse}
             </div>
-            <div class="chat">
-                <!-- Chat messages will go here -->
-            </div>
-            <div class="input">
-                <textarea id="textInput" class="message-input" type="text"  placeholder="Ask Followup Questions"></textarea>
-                <br>
-                <button id="sendButton" class="send-button">Send</button>
+            <hr>
+            <div id="selectedText">
+            
             </div>
         </div>
+    <div class="chat">
+        <!-- Chat messages will go here -->
+    </div>
+    <div class="input">
+        <textarea id="textInput" class="message-input" type="text"  placeholder="Ask Followup Questions"></textarea>
+        <br>
+        <button id="sendButton" class="send-button">Send</button>
+    </div>
+    </div>
 
-        <script>
-            function appendMessage(sender, message) {
-                const chat = document.querySelector(".chat");
-                const messageElement = document.createElement("div");
-                messageElement.className = sender === "user" ? "user-message" : "bot-message";
-                const icon = document.createElement("span");
-                icon.className = sender === "user" ? "user-icon" : "bot-icon";
-                icon.innerHTML = sender === "user" ? "👤  " : "🤖  ";
-                messageElement.appendChild(icon);
-                messageElement.innerHTML += message;
-                chat.appendChild(messageElement);
-            }
+    <script>
+    function appendMessage(sender, message) {
+        const chat = document.querySelector(".chat");
+        const messageElement = document.createElement("div");
+        messageElement.className = sender === "user" ? "user-message" : "bot-message";
+        const icon = document.createElement("span");
+        icon.className = sender === "user" ? "user-icon" : "bot-icon";
+        icon.innerHTML = sender === "user" ? "👤  " : "🤖  "; // Add icons for the user and bot
+        messageElement.appendChild(icon);
+        messageElement.innerHTML += message;
+        chat.appendChild(messageElement);
+    }
 
-            document.getElementById("sendButton").addEventListener("click", () => {
-                sendMessage();
-            });
+    document.getElementById("sendButton").addEventListener("click", () => {
+        sendMessage();
+    });
 
-            document.getElementById("textInput").addEventListener("keyup", (event) => {
-                if (event.key === "Enter") {
-                    sendMessage();
-                }
-            });
+    document.getElementById("textInput").addEventListener("keyup", (event) => {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
 
-            function sendMessage() {
-                const textInput = document.getElementById("textInput");
-                const text = textInput.value;
-                const selectedText = document.getElementById("selectedText").textContent; // Get the text content
-                if (text) {
-                    appendMessage("user", text);
-                    sendToBard(text, selectedText); // Pass selectedText as a parameter
-                    textInput.value = "";
-                }
-            }
+    function sendMessage() {
+        const textInput = document.getElementById("textInput");
+        const text = textInput.value;
+        const selectedText = document.getElementById("selectedText").textContent; // Get the text content
+        if (text) {
+            // Display the user's message in the chat
+            appendMessage("user", text);
 
-            function sendToBard(text, selectedText) {
-                console.log("selectedText: " + selectedText);
-                // Your Bard API integration code here
-                appendMessage("bot", "Seen: " + text + " SelectedText: " + selectedText);
-            }
-        </script>
-    </body>
-    </html>`;
+            // Send the user's message to Bard API (you'll need to integrate this)
+            // Replace the following line with your Bard API call
+            sendToBard(text, selectedText);
+
+            // Clear the input field
+            textInput.value = "";
+        }
+    }
+
+    // Example function for sending a message to Bard
+    function sendToBard(text, selectedText) {
+        console.log("selectedText: " + selectedText);
+        // Your Bard API integration code here
+        // Replace this with your actual API call
+
+        // For this example, we'll simply respond with "seen"
+        appendMessage("bot", "Seen: " + text + " SelectedText: " + selectedText);
+    }
+ </script>
+        </body>
+        </html>
+        `;
 }
-
 
 
 function deactivate() {

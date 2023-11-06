@@ -167,11 +167,12 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const API_KEY = apiKey;
     const messages = [];
 
+    // const content = "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag."
+    const content = "Rewrite the corrected version of this code: " + "\n" + highlightedText + "\n";
+
     messages.push({
-        "content": "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
+        "content": content
     });
-    const content = "Simply Check this text and say something: \n " + highlightedText + " \n If it is meaningless, let me know"
-    console.log("Content: " + content);
     const client = new DiscussServiceClient({
         authClient: new GoogleAuth().fromAPIKey(API_KEY),
     });
@@ -179,18 +180,11 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const context = "Reply like a seasoned senior developer and code coach giving detailed explanation to the extracted code line. The file currently being worked on is written in \n '" + language + "' programming language. This is the content of the file: \n '" + fileContent + "' \n";
     const examples = [
         {
-            "input":{
-              "content":  "Simply Check this text and say something:axios.post(apiUrl, requestData, { headers }).then(response => {// console.log('Response Status Code:', response.status);console.log('Response Data:', response.data.candidates[0].output.toString());}).catch(error => { console.error('Error:', error);});If it is meaningless, let me know"
-            },
-            "output":{
-              "content":"The provided text appears to be JavaScript code snippet that utilizes the Axios library to perform an HTTP POST request. It sends the request to an API endpoint specified by apiUrl with the request data stored in requestData and custom headers defined in the headers object.Upon successful completion of the request, the then() block is executed, which logs the response status code and the first candidate's output string to the console. If an error occurs during the request, the catch() block is triggered, logging the error details to the console.The code snippet seems meaningful in the context of making HTTP POST requests and handling responses using the Axios library. It demonstrates the basic structure of sending data to an API endpoint and processing the received response"
-            }
-        },{
             "input": {
-                "content": "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag.",
+                "content": "Simply Check this text and say something:axios.post(apiUrl, requestData, { headers }).then(response => {// console.log('Response Status Code:', response.status);console.log('Response Data:', response.data.candidates[0].output.toString());}).catch(error => { console.error('Error:', error);});If it is meaningless, let me know"
             },
             "output": {
-                "content": "Your response here...",
+                "content": "The provided text appears to be JavaScript code snippet that utilizes the Axios library to perform an HTTP POST request. It sends the request to an API endpoint specified by apiUrl with the request data stored in requestData and custom headers defined in the headers object.Upon successful completion of the request, the then() block is executed, which logs the response status code and the first candidate's output string to the console. If an error occurs during the request, the catch() block is triggered, logging the error details to the console.The code snippet seems meaningful in the context of making HTTP POST requests and handling responses using the Axios library. It demonstrates the basic structure of sending data to an API endpoint and processing the received response"
             }
         }
     ];
@@ -238,10 +232,10 @@ function getWebviewContent(selectedText, bardResponse) {
         .map(paragraph => `<p>${paragraph}</p>`)
         .join('')
         .toString()
+        .replace(/<\/p><p>/g, '\n')
 
     const codeRegex = /```([\s\S]*?)```/g;
-    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: pre-wrap;">$1</pre>');
-
+    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: pre-wrap;"><pre><code><xmp>$1</xmp></code></pre></pre>');
 
     return `<!DOCTYPE html>
     <!DOCTYPE html>
@@ -364,7 +358,13 @@ function getWebviewContent(selectedText, bardResponse) {
             <div class="bot-message">
                 ${searchedResponse}
             </div>
-            <!-- Add more messages as needed -->
+            <div id="selectedText">
+            <pre><code>
+            <xmp>
+                ${selectedText}
+            </xmp>
+            </code></pre>
+            </div>
         </div>
     <div class="chat">
         <!-- Chat messages will go here -->
@@ -402,13 +402,14 @@ function getWebviewContent(selectedText, bardResponse) {
     function sendMessage() {
         const textInput = document.getElementById("textInput");
         const text = textInput.value;
+        const selectedText = document.getElementById("selectedText").textContent; // Get the text content
         if (text) {
             // Display the user's message in the chat
             appendMessage("user", text);
 
             // Send the user's message to Bard API (you'll need to integrate this)
             // Replace the following line with your Bard API call
-            sendToBard(text);
+            sendToBard(text, selectedText);
 
             // Clear the input field
             textInput.value = "";
@@ -416,12 +417,13 @@ function getWebviewContent(selectedText, bardResponse) {
     }
 
     // Example function for sending a message to Bard
-    function sendToBard(text) {
+    function sendToBard(text, selectedText) {
+        console.log("selectedText: " + selectedText);
         // Your Bard API integration code here
         // Replace this with your actual API call
 
         // For this example, we'll simply respond with "seen"
-        appendMessage("bot", "Seen: " + text );
+        appendMessage("bot", "Seen: " + text + " SelectedText: " + selectedText);
     }
  </script>
         </body>
