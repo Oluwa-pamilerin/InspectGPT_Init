@@ -167,8 +167,8 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const API_KEY = apiKey;
     const messages = [];
 
-    // const content = "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag."
-    const content = "Rewrite the corrected version of this code: " + "\n" + highlightedText + "\n";
+    const content = "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag."
+    // const content = "Rewrite the corrected version of this code: " + "\n" + highlightedText + "\n";
 
     messages.push({
         "content": content
@@ -237,7 +237,7 @@ function getWebviewContent(selectedText, bardResponse) {
     const codeRegex = /```([\s\S]*?)```/g;
     const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: no-wrap; overflow-x: auto;"><pre><code><xmp>$1</xmp></code></pre></pre>');
 
-    selectedText = "<pre><code><xmp>${selectedText}</xmp></code></pre>"
+     selectedText = "<pre><code><xmp>" + selectedText + "</xmp></code></pre>"
 
     return `<!DOCTYPE html>
     <!DOCTYPE html>
@@ -362,7 +362,7 @@ function getWebviewContent(selectedText, bardResponse) {
             </div>
             <hr>
             <div id="selectedText">
-            
+                ${selectedText}
             </div>
         </div>
     <div class="chat">
