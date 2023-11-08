@@ -7,6 +7,7 @@ const envFilePath = path.join(__dirname, '.env');
 const result = dotenv.config({ path: envFilePath });
 const limit = 10000; // Set your payload size limit here
 const apiKey = process.env.API_KEY;
+var getResult = false;
 if (result.error) {
     console.error(`Error loading .env file: ${result.error.message}`);
 } else {
@@ -167,8 +168,8 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     const API_KEY = apiKey;
     const messages = [];
 
-    // const content = "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag."
-    const content = "Rewrite the corrected version of this code: " + "\n" + highlightedText + "\n";
+    const content = "Deligently check out this extract below and explain what this code is all about in specific context to the other codes in the project. If there are any error, point them out." + "\n" + highlightedText + "\n" + "If necessary, send the corrected version of the code. If your response includes code, enclose it in a '<pre>' tag."
+    // const content = "Rewrite the corrected version of this code: " + "\n" + highlightedText + "\n";
 
     messages.push({
         "content": content
@@ -205,6 +206,7 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
             result[0].candidates.forEach(obj => {
                 panel.webview.html = getWebviewContent(highlightedText, obj.content);
                 messages.push({ "content": obj.content });
+                getResult = true;
             });
         } else {
             console.log("Oops, please provide some more info");
@@ -235,7 +237,9 @@ function getWebviewContent(selectedText, bardResponse) {
         .replace(/<\/p><p>/g, '\n')
 
     const codeRegex = /```([\s\S]*?)```/g;
-    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: pre-wrap;"><pre><code><xmp>$1</xmp></code></pre></pre>');
+    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: no-wrap; overflow-x: auto;"><pre><code><xmp>$1</xmp></code></pre></pre>');
+
+     selectedText = "<pre><code><xmp>" + selectedText + "</xmp></code></pre>"
 
     return `<!DOCTYPE html>
     <!DOCTYPE html>
@@ -358,12 +362,10 @@ function getWebviewContent(selectedText, bardResponse) {
             <div class="bot-message">
                 ${searchedResponse}
             </div>
+            <a id="retry-button" class="invisible" >Retry!</a>
+            <hr>
             <div id="selectedText">
-            <pre><code>
-            <xmp>
                 ${selectedText}
-            </xmp>
-            </code></pre>
             </div>
         </div>
     <div class="chat">
@@ -377,6 +379,18 @@ function getWebviewContent(selectedText, bardResponse) {
     </div>
 
     <script>
+    function updateButtonVisibility() {
+        const botMessage = document.getElementById("bot-message");
+        const retryButton = document.getElementById("retry-button");
+
+        if (${getResult} == true) {
+            retryButton.classList.remove("invisible");
+    }
+
+    updateButtonVisibility();
+
+    // Monitor changes to the bot message text
+    setInterval(updateButtonVisibility, 1000);
     function appendMessage(sender, message) {
         const chat = document.querySelector(".chat");
         const messageElement = document.createElement("div");

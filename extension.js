@@ -7,6 +7,7 @@ const envFilePath = path.join(__dirname, '.env');
 const result = dotenv.config({ path: envFilePath });
 const limit = 10000; // Set your payload size limit here
 const apiKey = process.env.API_KEY;
+var getResult = false;
 if (result.error) {
     console.error(`Error loading .env file: ${result.error.message}`);
 } else {
@@ -74,7 +75,7 @@ function activate(context) {
                     // If the content is within the limit, return it as is
                 } else {
                     // If content exceeds the limit, return the content until the limit with "..."
-                    const selectedText = editor.document.getText(selection).slice(0, limit) + '... "\n The code continues..."';
+                    const selectedText = editor.document.getText(selection).slice(0, limit) + "... '\n The code continues...'";
                 }
                 panel = sendHighlightedTextToBard(selectedText, panel); // Pass the panel variable
             }
@@ -126,6 +127,7 @@ function getActiveFileContent() {
 
 
 function sendHighlightedTextToBard(highlightedText, existingPanel) {
+    getResult = false;
     if (!apiKey) {
         console.error("API_KEY is not available. Cannot make the request.");
         return existingPanel;
@@ -205,9 +207,11 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
             result[0].candidates.forEach(obj => {
                 panel.webview.html = getWebviewContent(highlightedText, obj.content);
                 messages.push({ "content": obj.content });
+                getResult = true;
             });
         } else {
             console.log("Oops, please provide some more info");
+            getResult = true;
             panel.webview.html = getWebviewContent(highlightedText, "Oops, please provide some more info");
         }
     }).catch(error => {
@@ -348,6 +352,9 @@ function getWebviewContent(selectedText, bardResponse) {
             border-radius: 5px;
             cursor: pointer;
         }
+        .invisible{
+            visibility:hidden;
+        }
 
     </style>
 </head>
@@ -360,6 +367,7 @@ function getWebviewContent(selectedText, bardResponse) {
             <div class="bot-message">
                 ${searchedResponse}
             </div>
+            <a id="retry-button" class="invisible" >Retry!</a>
             <hr>
             <div id="selectedText">
                 ${selectedText}
@@ -376,6 +384,21 @@ function getWebviewContent(selectedText, bardResponse) {
     </div>
 
     <script>
+    function updateButtonVisibility() {
+        const botMessage = document.getElementById("bot-message");
+        const retryButton = document.getElementById("retry-button");
+
+        if (${getResult} == true) {
+            retryButton.classList.remove("invisible");
+        } else{
+            retryButton.classList.add("invisible");
+        }
+    }
+
+    updateButtonVisibility();
+
+    // Monitor changes to the bot message text
+    setInterval(updateButtonVisibility, 1000);
     function appendMessage(sender, message) {
         const chat = document.querySelector(".chat");
         const messageElement = document.createElement("div");
@@ -424,6 +447,12 @@ function getWebviewContent(selectedText, bardResponse) {
         // For this example, we'll simply respond with "seen"
         appendMessage("bot", "Seen: " + text + " SelectedText: " + selectedText);
     }
+
+    document.getElementById("retry-button").addEventListener("click", retry);
+    function retry() {
+        const selectedText = document.getElementById("selectedText").textContent; // Get the text content
+    }
+
  </script>
         </body>
         </html>
