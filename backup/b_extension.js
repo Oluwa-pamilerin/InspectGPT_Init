@@ -75,7 +75,7 @@ function activate(context) {
                     // If the content is within the limit, return it as is
                 } else {
                     // If content exceeds the limit, return the content until the limit with "..."
-                    const selectedText = editor.document.getText(selection).slice(0, limit) + '... "\n The code continues..."';
+                    const selectedText = editor.document.getText(selection).slice(0, limit) + "... '\n The code continues...'";
                 }
                 panel = sendHighlightedTextToBard(selectedText, panel); // Pass the panel variable
             }
@@ -127,6 +127,7 @@ function getActiveFileContent() {
 
 
 function sendHighlightedTextToBard(highlightedText, existingPanel) {
+    getResult = false;
     if (!apiKey) {
         console.error("API_KEY is not available. Cannot make the request.");
         return existingPanel;
@@ -142,10 +143,7 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     // Create a new panel
     const panel = vscode.window.createWebviewPanel(
         'highlightedTextPanel',
-        highlightedText
-            .replace(/[^\w\s]/g, '') // Remove special characters
-            .replace(/\s+/g, ' ')    // Remove extra spaces
-            .slice(0, 50),          // Truncate to 50 characters,
+        highlightedText,          // Truncate to 50 characters,
         vscode.ViewColumn.Two,
         {
             enableScripts: true,
@@ -153,6 +151,7 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
     );
 
     // Show "Waiting for Bard" while waiting for the response
+    getResult = false;
     panel.webview.html = getWebviewContent(highlightedText, 'Waiting for Bard...');
 
     // Handle messages from the webview
@@ -210,13 +209,16 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
             });
         } else {
             console.log("Oops, please provide some more info");
+            getResult = true;
             panel.webview.html = getWebviewContent(highlightedText, "Oops, please provide some more info");
         }
     }).catch(error => {
         if (error.code === 'ECONNABORTED') {
+            getResult = true;
             panel.webview.html = getWebviewContent(highlightedText, 'No Internet Connection');
         } else {
             console.error('Error sending text to Bard:', error);
+            getResult = true;
             panel.webview.html = getWebviewContent(highlightedText, 'Error sending text to Bard');
         }
     });
@@ -234,13 +236,33 @@ function getWebviewContent(selectedText, bardResponse) {
         .map(paragraph => `<p>${paragraph}</p>`)
         .join('')
         .toString()
-        .replace(/<\/p><p>/g, '\n')
-
     const codeRegex = /```([\s\S]*?)```/g;
-    const searchedResponse = formattedResponse.replace(codeRegex, '<pre style="padding: 10px; border-radius:5px; background-color: black; color: white; white-space: no-wrap; overflow-x: auto;"><pre><code><xmp>$1</xmp></code></pre></pre>');
+    function replaceParagraphTagsWithNewlines(match) {
+        const replacedMatch = match.replace(/<\/p><p>/g, '\n').replace(/```/g, '');
+        return "<pre style='padding: 10px; padding-right: 10px; border-radius:5px; background-color: black; color: white; white-space: no-wrap; overflow-x: auto;'><pre><code><xmp>" + replacedMatch +"</xmp></code></pre></pre>"
+      }
+    const searchedResponse = formattedResponse.replace(codeRegex, replaceParagraphTagsWithNewlines);
 
-     selectedText = "<pre><code><xmp>" + selectedText + "</xmp></code></pre>"
+    selectedText = "<pre><code><xmp>" + selectedText + "</xmp></code></pre>"
 
+    function truncateText(text, lines = 3) {
+        // Check if the text is more than 3 lines.
+        const textLines = text.split('\n').length;
+        if (textLines <= lines) {
+          return text;
+        }
+      
+        // Truncate the text to the first three lines.
+        var truncatedText = text.split('\n').slice(0, lines).join('\n');
+      
+        // Add a "Read More" link to the end of the truncated text.
+        truncatedText = truncatedText + 'Read More';
+      
+        // Return the truncated text.
+        return truncatedText;
+      }
+
+      selectedText = truncateText(selectedText, 3);
     return `<!DOCTYPE html>
     <!DOCTYPE html>
     <html>
@@ -258,6 +280,10 @@ function getWebviewContent(selectedText, bardResponse) {
             color: white;
             text-align: center;
             padding: 10px;
+        }
+
+        #selectedText{
+            visibility:hidden;
         }
 
         .chat-container {
@@ -350,6 +376,17 @@ function getWebviewContent(selectedText, bardResponse) {
             border-radius: 5px;
             cursor: pointer;
         }
+        .invisible{
+            visibility:hidden;
+        }
+        .retry-button{
+            background-color: white;
+            color: #343541;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
 
     </style>
 </head>
@@ -362,7 +399,7 @@ function getWebviewContent(selectedText, bardResponse) {
             <div class="bot-message">
                 ${searchedResponse}
             </div>
-            <a id="retry-button" class="invisible" >Retry!</a>
+            <button id="retry-button" class="invisible retry-button" >Retry</button>
             <hr>
             <div id="selectedText">
                 ${selectedText}
@@ -383,8 +420,11 @@ function getWebviewContent(selectedText, bardResponse) {
         const botMessage = document.getElementById("bot-message");
         const retryButton = document.getElementById("retry-button");
 
-        if (${getResult} == true) {
+        if (${getResult} === true) {
             retryButton.classList.remove("invisible");
+        } else{
+            retryButton.classList.add("invisible");
+        }
     }
 
     updateButtonVisibility();
@@ -439,6 +479,29 @@ function getWebviewContent(selectedText, bardResponse) {
         // For this example, we'll simply respond with "seen"
         appendMessage("bot", "Seen: " + text + " SelectedText: " + selectedText);
     }
+
+    document.getElementById("retry-button").addEventListener("click", retry);
+    function retry() {
+        const selectedText = document.getElementById("selectedText").textContent; // Get the text content
+    }
+    // Add an event listener to the "Read More" link.
+const readMoreLinks = document.querySelectorAll('.read-more');
+readMoreLinks.forEach(link => {
+  link.addEventListener('click', event => {
+    // Prevent the default link behavior.
+    event.preventDefault();
+
+    // Get the parent element of the "Read More" link.
+    const parentElement = link.closest('.truncated-text');
+
+    // Remove the "Read More" link from the parent element.
+    link.remove();
+
+    // Display the remaining lines of text.
+    parentElement.classList.remove('truncated');
+  });
+});
+
  </script>
         </body>
         </html>
