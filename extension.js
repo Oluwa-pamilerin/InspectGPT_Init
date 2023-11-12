@@ -6,19 +6,33 @@ const dotenv = require('dotenv');
 const envFilePath = path.join(__dirname, '.env');
 const result = dotenv.config({ path: envFilePath });
 const limit = 10000; // Set your payload size limit here
-const apiKey = process.env.API_KEY;
+let config = '';
+let apiKey = '';
+
 var getResult = false;
-if (result.error) {
-    console.error(`Error loading .env file: ${result.error.message}`);
-} else {
-    // Check if the API_KEY is available
-    if (!apiKey) {
-        console.error("API_KEY is not found in the .env file. Please check your configuration.");
-    }
-}
 
 // List of file names to omit
 function activate(context) {
+    config = vscode.workspace.getConfiguration('InspectGPT');
+    apiKey = config.get('apiKey');
+    context.subscriptions.push(
+        vscode.commands.registerCommand('extension.inspectGPTAPIKey', () => {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'InspectGPT.apiKey');
+        })
+    );
+    if (!apiKey) {
+        vscode.window.showErrorMessage('InspectGPT API key is not set. Please configure it in the settings. Click Ctrl+Shift+P and type "InspectGPT API KEY" in the search box.');
+    }
+
+    config = vscode.workspace.getConfiguration('InspectGPT');
+    apiKey = config.get('apiKey');
+
+    if (!apiKey) {
+        vscode.window.showErrorMessage('InspectGPT API key is not set. Click "InspectGPT API KEY" to configure it.');
+    } else {
+        // Continue with extension logic using apiKey
+    }
+
     // Register an event listener to log folder contents when a workspace folder is ready
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
     });
@@ -213,11 +227,14 @@ function sendHighlightedTextToBard(highlightedText, existingPanel) {
             panel.webview.html = getWebviewContent(highlightedText, "Oops, please provide some more info");
         }
     }).catch(error => {
-        if (error.code === 'ECONNABORTED') {
+        if (error.code === 'ECONNABORTED' || error.code === 14) {
             getResult = true;
-            panel.webview.html = getWebviewContent(highlightedText, 'No Internet Connection');
+            panel.webview.html = getWebviewContent(highlightedText, 'Please Check Your No Internet Connection');
+        }else if(error.code === 3){
+            getResult = true;
+            panel.webview.html = getWebviewContent(highlightedText, 'Your API Key Is Invalid. Pease Recheck It. Click Ctrl+Shift+P and type "InspectGPT API KEY" in the search box.');
         } else {
-            console.error('Error sending text to Bard:', error);
+            console.error('Error sending text to Bard:', error.code);
             getResult = true;
             panel.webview.html = getWebviewContent(highlightedText, 'Error sending text to Bard');
         }
@@ -239,8 +256,8 @@ function getWebviewContent(selectedText, bardResponse) {
     const codeRegex = /```([\s\S]*?)```/g;
     function replaceParagraphTagsWithNewlines(match) {
         const replacedMatch = match.replace(/<\/p><p>/g, '\n').replace(/```/g, '');
-        return "<pre style='padding: 10px; padding-right: 10px; border-radius:5px; background-color: black; color: white; white-space: no-wrap; overflow-x: auto;'><pre><code><xmp>" + replacedMatch +"</xmp></code></pre></pre>"
-      }
+        return "<pre style='padding: 10px; padding-right: 10px; border-radius:5px; background-color: black; white-space: no-wrap; overflow-x: auto;'><pre><code style = 'color: white;'><xmp>" + replacedMatch + "</xmp></code></pre></pre>"
+    }
     const searchedResponse = formattedResponse.replace(codeRegex, replaceParagraphTagsWithNewlines);
 
     selectedText = "<pre><code><xmp>" + selectedText + "</xmp></code></pre>"
@@ -249,20 +266,20 @@ function getWebviewContent(selectedText, bardResponse) {
         // Check if the text is more than 3 lines.
         const textLines = text.split('\n').length;
         if (textLines <= lines) {
-          return text;
+            return text;
         }
-      
+
         // Truncate the text to the first three lines.
         var truncatedText = text.split('\n').slice(0, lines).join('\n');
-      
+
         // Add a "Read More" link to the end of the truncated text.
         truncatedText = truncatedText + 'Read More';
-      
+
         // Return the truncated text.
         return truncatedText;
-      }
+    }
 
-      selectedText = truncateText(selectedText, 3);
+    selectedText = truncateText(selectedText, 3);
     return `<!DOCTYPE html>
     <!DOCTYPE html>
     <html>

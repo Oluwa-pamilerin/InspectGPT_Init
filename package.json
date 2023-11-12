@@ -1,9 +1,9 @@
 {
   "name": "inspectgpt",
   "displayName": "InspectGPT",
-  "publisher": "OTimSobiyede2",
+  "publisher": "O-T-S",
   "description": "Your extension description here",
-  "version": "0.0.1",
+  "version": "2.0.1",
   "engines": {
     "vscode": "^1.81.0"
   },
@@ -18,18 +18,25 @@
   "contributes": {
     "commands": [
       {
-        "command": "extension.logFolderContents",
-        "title": "Log Folder Contents"
-      }
+        "command": "extension.inspectGPTAPIKey",
+        "title": "InspectGPT API KEY"
+     }
     ],
     "menus": {
-      "editor/context": [
-        {
-          "command": "extension.logFolderContents",
-          "when": "editorFocus"
-        }
+      "editor/context": [  
       ]
-    }
+    },
+    "configuration": {
+      "title": "InspectGPT",
+      "properties": {
+         "InspectGPT.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "Insert Your API Key and RELOAD THIS WINDOW(Ctrl+R)"
+         }
+      }
+   }
+   
   },
   "scripts": {
     "lint": "eslint .",
